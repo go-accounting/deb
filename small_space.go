@@ -8,7 +8,7 @@ import (
 
 type smallSpace struct {
 	arr                      Array
-	dateOffset, momentOffset int
+	dateOffset, momentOffset uint64
 	metadata                 [][][]byte
 }
 
@@ -22,7 +22,8 @@ func NewSmallSpace(arr Array, metadata [][][]byte) Space {
 // NewSmallSpaceWithOffset creates a Space based on the given array, offsets and metadata.
 // Metadata is a []byte and is indexed by date and moment,
 // therefore the type [][][]byte.
-func NewSmallSpaceWithOffset(arr Array, dateOffset, momentOffset int, metadata [][][]byte) Space {
+func NewSmallSpaceWithOffset(arr Array, dateOffset, momentOffset uint64,
+	metadata [][][]byte) Space {
 	return &smallSpace{arr.Copy(), dateOffset, momentOffset, metadata}
 }
 
@@ -54,7 +55,7 @@ func (ss *smallSpace) Append(s Space) error {
 				for j := 0; j < z; j++ {
 					if other_ss.metadata != nil && j >= z0 {
 						md[i][j] =
-							other_ss.metadata[i-other_ss.dateOffset][j-other_ss.momentOffset]
+							other_ss.metadata[uint64(i)-other_ss.dateOffset][uint64(j)-other_ss.momentOffset]
 					}
 				}
 			}
@@ -106,12 +107,12 @@ func (ss *smallSpace) Append(s Space) error {
 				other_arr[a-1][t.Date-1][t.Moment-1] = v
 			}
 			if hasMetadata {
-				d := int(t.Date) - int(minDate) - ss.dateOffset
-				m := int(t.Moment) - int(minMoment) - ss.momentOffset
+				d := uint64(t.Date) - uint64(minDate) - ss.dateOffset
+				m := uint64(t.Moment) - uint64(minMoment) - ss.momentOffset
 				md[d][m] = t.Metadata
 			}
 		}
-		ss.arr.Append(&other_arr, int(minDate), int(minMoment))
+		ss.arr.Append(&other_arr, uint64(minDate), uint64(minMoment))
 		if ss.metadata != nil || hasMetadata {
 			ss.metadata = md
 		}
@@ -125,8 +126,8 @@ func (ss *smallSpace) Slice(a []Account, d []DateRange, m []MomentRange) (Space,
 	for i := 0; i < x; i++ {
 		for j := 0; j < y; j++ {
 			for k := 0; k < z; k++ {
-				if !containsDate(d, Date(j+1+ss.dateOffset)) ||
-					!containsMoment(m, Moment(k+1+ss.momentOffset)) {
+				if !containsDate(d, Date(uint64(j+1)+ss.dateOffset)) ||
+					!containsMoment(m, Moment(uint64(k+1)+ss.momentOffset)) {
 					result.arr[i][j][k] = 0
 					if ss.metadata != nil {
 						ss.metadata[j][k] = nil
@@ -180,8 +181,8 @@ func (ss *smallSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 	for j := 0; j < y; j++ {
 		for k := 0; k < z; k++ {
 			found := false
-			if containsDateStart(d, Date(j+1+ss.dateOffset)) &&
-				containsMomentStart(m, Moment(k+1+ss.momentOffset)) {
+			if containsDateStart(d, Date(uint64(j+1)+ss.dateOffset)) &&
+				containsMomentStart(m, Moment(uint64(k+1)+ss.momentOffset)) {
 				for i := 0; i < x; i++ {
 					if containsAccount(a, Account(i+1)) && result.arr[i][j][k] != 0 {
 						found = true
@@ -214,8 +215,8 @@ func (ss *smallSpace) Transactions() (chan *Transaction, chan error) {
 				if ss.metadata != nil {
 					metadata = ss.metadata[j][k]
 				}
-				t := Transaction{Moment(k + 1 + ss.momentOffset),
-					Date(j + 1 + ss.dateOffset), make(Entries), metadata}
+				t := Transaction{Moment(uint64(k+1) + ss.momentOffset),
+					Date(uint64(j+1) + ss.dateOffset), make(Entries), metadata}
 				for i := 0; i < x; i++ {
 					if ss.arr[i][j][k] != 0 {
 						t.Entries[Account(i+1)] = ss.arr[i][j][k]

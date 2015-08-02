@@ -9,7 +9,7 @@ func (SmallSpaceBuilder) NewSpace(arr Array, metadata [][][]byte) Space {
 }
 
 func (SmallSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata [][][]byte) Space {
-	return NewSmallSpaceWithOffset(arr, do, mo, metadata)
+	return NewSmallSpaceWithOffset(arr, uint64(do), uint64(mo), metadata)
 }
 
 func TestSmallSpaceTransactions(t *testing.T) {

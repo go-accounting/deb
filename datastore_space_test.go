@@ -33,7 +33,7 @@ func (DatastoreSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata 
 	if err != nil {
 		panic(err)
 	}
-	if err := ds.Append(NewSmallSpaceWithOffset(arr, do, mo, metadata)); err != nil {
+	if err := ds.Append(NewSmallSpaceWithOffset(arr, uint64(do), uint64(mo), metadata)); err != nil {
 		panic(err)
 	}
 	return ds

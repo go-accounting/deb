@@ -50,15 +50,16 @@ func (arr Array) Transposed() (result Array) {
 	return
 }
 
-func (arr *Array) Append(other_arr *Array, y, z int) error {
+func (arr *Array) Append(other_arr *Array, y, z uint64) error {
 	x1, y1, z1 := arr.Dimensions()
 	x2, y2, z2 := other_arr.Dimensions()
-	mx, my, mz := xmath.Max(x1, x2), xmath.Max(y1, y2+y), xmath.Max(z1, z2+z)
+	mx, my, mz := xmath.Max(x1, x2), xmath.MaxU64(uint64(y1), uint64(y2)+y),
+		xmath.MaxU64(uint64(z1), uint64(z2)+z)
 	if arr.Empty() && other_arr.Empty() {
 		return nil
 	}
 	result := make(Array, mx)
-	values := make([]int64, mx*my*mz)
+	values := make([]int64, uint64(mx)*my*mz)
 	for i := range result {
 		result[i] = make([][]int64, my)
 		for j := range result[i] {
@@ -68,7 +69,7 @@ func (arr *Array) Append(other_arr *Array, y, z int) error {
 					result[i][j][k] = (*arr)[i][j][k]
 				}
 				if i < x2 && j < y2 && k < z2 {
-					result[i][j][k+z] = (*other_arr)[i][j][k]
+					result[i][j][uint64(k)+z] = (*other_arr)[i][j][k]
 				}
 			}
 		}

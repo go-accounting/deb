@@ -45,8 +45,12 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 			t := q.Run(ctx)
 			for {
 				bw := blockWrapper{*ls.newDataBlock(), time.Now()}
+				mdSize := cap(bw.Block.MD)
 				var k *datastore.Key
 				k, err = t.Next(&bw)
+				newMD := make([]byte, len(bw.Block.MD), mdSize)
+				copy(newMD, bw.Block.MD)
+				bw.Block.MD = newMD
 				if err == datastore.Done {
 					err = nil
 					break
