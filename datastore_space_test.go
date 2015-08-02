@@ -29,7 +29,7 @@ func (dsb DatastoreSpaceBuilder) NewSpace(arr Array, metadata [][][]byte) Space 
 }
 
 func (DatastoreSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata [][][]byte) Space {
-	ds, err := NewDatastoreSpace(ctx, nil)
+	ds, _, err := NewDatastoreSpace(ctx, nil)
 	if err != nil {
 		panic(err)
 	}

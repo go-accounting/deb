@@ -22,15 +22,15 @@ type keyWrapper struct {
 	asOf time.Time
 }
 
-func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, error) {
+func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datastore.Key, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("ctx is nil")
+		return nil, nil, fmt.Errorf("ctx is nil")
 	}
 	if key == nil {
 		key = datastore.NewIncompleteKey(ctx, "space", nil)
 		var err error
 		if key, err = datastore.Put(ctx, key, &datastoreSpace{}); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	var ls *largeSpace
@@ -83,5 +83,5 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, error)
 		}
 	}()
 	ls = newLargeSpace(1014*1024, in, out, errc)
-	return ls, nil
+	return ls, key, nil
 }
