@@ -233,6 +233,9 @@ func (ss *smallSpace) Transactions() (chan *Transaction, chan error) {
 }
 
 func containsAccount(a []Account, elem Account) bool {
+	if a == nil || len(a) == 0 {
+		return true
+	}
 	for _, each := range a {
 		if each == elem {
 			return true
@@ -242,6 +245,9 @@ func containsAccount(a []Account, elem Account) bool {
 }
 
 func containsDate(d []DateRange, elem Date) bool {
+	if d == nil || len(d) == 0 {
+		return true
+	}
 	for _, each := range d {
 		if each.Start <= elem && each.End >= elem {
 			return true
@@ -251,6 +257,9 @@ func containsDate(d []DateRange, elem Date) bool {
 }
 
 func containsMoment(m []MomentRange, elem Moment) bool {
+	if m == nil || len(m) == 0 {
+		return true
+	}
 	for _, each := range m {
 		if each.Start <= elem && each.End >= elem {
 			return true
