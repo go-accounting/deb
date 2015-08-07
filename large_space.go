@@ -17,7 +17,7 @@ type dataBlock struct {
 	V   []int64 // Values
 	B   []int16 // Accounts bound
 	MD  []byte  // Metadata
-	BMD []int16 // Metadata bounds
+	BMD []int32 // Metadata bounds
 }
 
 func newLargeSpace(blockSize uint, in func() chan *dataBlock, out chan *dataBlock,
@@ -70,7 +70,7 @@ func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 		nt := block.newTransaction(i)
 		if t, ok := transactions[k]; !ok {
 			transactions[k] = nt
-			transactions[k].Metadata = []byte{}
+			transactions[k].Metadata = nil
 		} else {
 			for ek, ev := range nt.Entries {
 				if ov, ok := t.Entries[ek]; ok {
@@ -131,7 +131,7 @@ func (block *dataBlock) newTransaction(i int) *Transaction {
 }
 
 func (ls *largeSpace) capacity() uint {
-	return (ls.blockSize / 2) / (64 + 32 + 32*2 + 64*2 + 16*2 + 16*2)
+	return (ls.blockSize / 2) / (64 + 32 + 32*2 + 64*2 + 16*2 + 32*2)
 }
 
 func (ls *largeSpace) freeBlock(t *Transaction) (*dataBlock, error) {
@@ -153,7 +153,7 @@ func (ls *largeSpace) newDataBlock() *dataBlock {
 	block.V = make([]int64, 0, ls.capacity()*2)
 	block.B = make([]int16, 0, ls.capacity()*2)
 	block.MD = make([]byte, 0, ls.blockSize/2)
-	block.BMD = make([]int16, 0, ls.capacity()*2)
+	block.BMD = make([]int32, 0, ls.capacity()*2)
 	return block
 }
 
@@ -195,8 +195,8 @@ func (block *dataBlock) append(t *Transaction) {
 	block.B[mLen*2] = int16(aLen)
 	block.B[mLen*2+1] = int16(aLen + len(t.Entries))
 	if t.Metadata != nil {
-		block.BMD[mLen*2] = int16(mdLen)
-		block.BMD[mLen*2+1] = int16(mdLen + len(t.Metadata))
+		block.BMD[mLen*2] = int32(mdLen)
+		block.BMD[mLen*2+1] = int32(mdLen + len(t.Metadata))
 		block.MD = block.MD[0 : mdLen+len(t.Metadata)]
 		copy(block.MD[mdLen:mdLen+len(t.Metadata)], t.Metadata)
 	} else {
