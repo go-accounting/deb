@@ -89,3 +89,18 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 	ls = newLargeSpace(1014*1024, in, out, errc)
 	return ls, key, nil
 }
+
+func CopySpaceToDatastore(ctx appengine.Context, key *datastore.Key, space Space) error {
+	if ls, ok := space.(*largeSpace); !ok {
+		return fmt.Errorf("Not a largeSpace")
+	} else {
+		ctx.Infof("Starting copying space")
+		for b := range ls.in() {
+			bk := datastore.NewIncompleteKey(ctx, "data_block", key)
+			if _, err := datastore.Put(ctx, bk, &blockWrapper{*b, time.Now()}); err != nil {
+				return err
+			}
+		}
+		return <-ls.errc
+	}
+}
