@@ -97,11 +97,6 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 				errc <- newErrorWithStackTrace(err)
 				continue
 			}
-			/*
-				l := len(block.M)*8 + len(block.D)*4 + len(block.A)*4 + len(block.V)*8 +
-					len(block.B)*2 + len(block.MD) + len(block.BMD)*4
-				fmt.Printf("-------> %v %v\n", l, len(buf.Bytes()))
-			*/
 			bw := blockWrapper{buf.Bytes(), time.Now()}
 			if block.key == nil || block.key.(keyWrapper).key == nil {
 				block.key = keyWrapper{datastore.NewIncompleteKey(ctx, "data_block", key),
