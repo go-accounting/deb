@@ -117,9 +117,10 @@ func assertSpaces(t *testing.T, spaces []Space, cases []Space) {
 			}
 			if !ok1 || !ok2 {
 				t.Errorf("closed: %v != closed: %v", !ok1, !ok2)
-			}
-			if !reflect.DeepEqual(*tx1, *tx2) {
-				t.Errorf("%v != %v", *tx1, *tx2)
+			} else {
+				if !reflect.DeepEqual(*tx1, *tx2) {
+					t.Errorf("%v != %v", *tx1, *tx2)
+				}
 			}
 		}
 	}

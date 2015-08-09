@@ -70,7 +70,7 @@ func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 		nt := block.newTransaction(i)
 		if t, ok := transactions[k]; !ok {
 			transactions[k] = nt
-			transactions[k].Metadata = nil
+			transactions[k].Metadata = []byte{}
 		} else {
 			for ek, ev := range nt.Entries {
 				if ov, ok := t.Entries[ek]; ok {
