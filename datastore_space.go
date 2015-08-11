@@ -91,45 +91,60 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 	out := make(chan []*dataBlock)
 	go func() {
 		for blocks := range out {
-			var err error
-			for _, block := range blocks {
-				if block.key == nil || block.key.(keyWrapper).key == nil {
-					block.key = keyWrapper{
-						datastore.NewIncompleteKey(ctx, "data_block", key), time.Now()}
-				} else {
-					var bw []blockWrapper
-					q := datastore.NewQuery("data_block").
-						Filter("__key__ =", block.key.(keyWrapper).key).
-						Project("AsOf")
-					if _, err = q.GetAll(ctx, &bw); err != nil {
+			errc <- datastore.RunInTransaction(ctx, func(tc appengine.Context) error {
+				var err error
+				keys := make([]*datastore.Key, 0, len(blocks))
+				asOfs := make([]time.Time, 0, len(blocks))
+				storedAsOfs := make([]*struct{ AsOf time.Time }, 0, len(blocks))
+				for _, block := range blocks {
+					if block.key == nil || block.key.(keyWrapper).key == nil {
+						block.key = keyWrapper{
+							datastore.NewIncompleteKey(tc, "data_block", key), time.Now()}
+					} else {
+						keys = append(keys, block.key.(keyWrapper).key)
+						asOfs = append(asOfs, block.key.(keyWrapper).asOf)
+					}
+				}
+				storedAsOfs = storedAsOfs[0:len(keys)]
+				if err = datastore.GetMulti(tc, keys, storedAsOfs); err != nil {
+					if merr, ok := err.(appengine.MultiError); ok {
+						found := false
+						for _, err := range merr {
+							if _, ok := err.(*datastore.ErrFieldMismatch); !ok {
+								found = true
+								break
+							}
+						}
+						if found {
+							return merr
+						}
+						err = nil
+					} else {
+						return newErrorWithStackTrace(err)
+					}
+				}
+				for i, _ := range keys {
+					if asOfs[i] != storedAsOfs[i].AsOf {
+						return fmt.Errorf("Concurrent modification")
+					}
+				}
+				keys = make([]*datastore.Key, len(blocks))
+				bws := make([]*blockWrapper, len(blocks))
+				for i, block := range blocks {
+					var buf bytes.Buffer
+					enc := gob.NewEncoder(&buf)
+					if err = enc.Encode(block); err != nil {
 						err = newErrorWithStackTrace(err)
 						break
 					}
-					if bw[0].AsOf != block.key.(keyWrapper).asOf {
-						errc <- fmt.Errorf("Concurrent modification")
-						break
-					}
+					keys[i] = block.key.(keyWrapper).key
+					bws[i] = &blockWrapper{buf.Bytes(), time.Now()}
 				}
-			}
-			if err != nil {
-				errc <- err
-				continue
-			}
-			for _, block := range blocks {
-				var buf bytes.Buffer
-				enc := gob.NewEncoder(&buf)
-				if err = enc.Encode(block); err != nil {
-					err = newErrorWithStackTrace(err)
-					break
+				if _, err = datastore.PutMulti(tc, keys, bws); err != nil {
+					return newErrorWithStackTrace(err)
 				}
-				bw := blockWrapper{buf.Bytes(), time.Now()}
-				_, err = datastore.Put(ctx, block.key.(keyWrapper).key, &bw)
-				if err != nil {
-					err = newErrorWithStackTrace(err)
-					break
-				}
-			}
-			errc <- err
+				return nil
+			}, nil)
 		}
 	}()
 	ls = newLargeSpace(1014*1024, in, out, errc)
