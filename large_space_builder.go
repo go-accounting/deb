@@ -21,14 +21,16 @@ func (LargeSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata [][]
 		}()
 		return c
 	}
-	out := make(chan *dataBlock)
+	out := make(chan []*dataBlock)
 	go func() {
-		for block := range out {
-			if block.key == nil {
-				blocks = append(blocks, block)
-			} else {
-				index := block.key.(int)
-				blocks[index] = block
+		for blocks_ := range out {
+			for _, block := range blocks_ {
+				if block.key == nil {
+					blocks = append(blocks, block)
+				} else {
+					index := block.key.(int)
+					blocks[index] = block
+				}
 			}
 			errc <- nil
 		}

@@ -5,7 +5,7 @@ import "fmt"
 type largeSpace struct {
 	blockSize uint
 	in        func() chan *dataBlock
-	out       chan *dataBlock
+	out       chan []*dataBlock
 	errc      chan error
 }
 
@@ -20,28 +20,36 @@ type dataBlock struct {
 	BMD []int32 // Metadata bounds
 }
 
-func newLargeSpace(blockSize uint, in func() chan *dataBlock, out chan *dataBlock,
+func newLargeSpace(blockSize uint, in func() chan *dataBlock, out chan []*dataBlock,
 	errc chan error) *largeSpace {
 	return &largeSpace{blockSize: blockSize, in: in, out: out, errc: errc}
 }
 
 func (ls *largeSpace) Append(s Space) error {
+	var (
+		lastBlock *dataBlock
+		blocks    []*dataBlock
+	)
 	c, errc := s.Transactions()
 	for t := range c {
-		if block, err := ls.freeBlock(t); err != nil {
+		if block, err := ls.freeBlock(lastBlock, t); err != nil {
 			return err
 		} else {
 			if block == nil {
 				block = ls.newDataBlock()
 			}
-			block.append(t)
-			ls.out <- block
-			if err := <-ls.errc; err != nil {
-				return err
+			if block != lastBlock {
+				lastBlock = block
+				blocks = append(blocks, block)
 			}
+			block.append(t)
 		}
 	}
 	if err := <-errc; err != nil {
+		return err
+	}
+	ls.out <- blocks
+	if err := <-ls.errc; err != nil {
 		return err
 	}
 	return nil
@@ -134,11 +142,13 @@ func (ls *largeSpace) capacity() uint {
 	return (ls.blockSize / 2) / (64 + 32 + 32*2 + 64*2 + 16*2 + 32*2)
 }
 
-func (ls *largeSpace) freeBlock(t *Transaction) (*dataBlock, error) {
+func (ls *largeSpace) freeBlock(block *dataBlock, t *Transaction) (*dataBlock, error) {
+	if block != nil && block.hasRoomFor(t, ls) {
+		return block, nil
+	}
 	var result *dataBlock
 	for block := range ls.in() {
-		if uint(len(block.A)+len(t.Entries)) <= ls.capacity()*2 &&
-			(t.Metadata == nil || uint(len(block.MD)+len(t.Metadata)) <= ls.blockSize/2) {
+		if block.hasRoomFor(t, ls) {
 			result = block
 		}
 	}
@@ -203,6 +213,11 @@ func (block *dataBlock) append(t *Transaction) {
 		block.BMD[mLen*2] = 0
 		block.BMD[mLen*2+1] = 0
 	}
+}
+
+func (block *dataBlock) hasRoomFor(t *Transaction, ls *largeSpace) bool {
+	return uint(len(block.A)+len(t.Entries)) <= ls.capacity()*2 &&
+		(t.Metadata == nil || uint(len(block.MD)+len(t.Metadata)) <= ls.blockSize/2)
 }
 
 func startDate(d []DateRange, elem Date) Date {

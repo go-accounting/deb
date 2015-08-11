@@ -88,39 +88,48 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 		}()
 		return c
 	}
-	out := make(chan *dataBlock)
+	out := make(chan []*dataBlock)
 	go func() {
-		for block := range out {
-			var buf bytes.Buffer
-			enc := gob.NewEncoder(&buf)
-			if err := enc.Encode(block); err != nil {
-				errc <- newErrorWithStackTrace(err)
+		for blocks := range out {
+			var err error
+			for _, block := range blocks {
+				if block.key == nil || block.key.(keyWrapper).key == nil {
+					block.key = keyWrapper{
+						datastore.NewIncompleteKey(ctx, "data_block", key), time.Now()}
+				} else {
+					var bw []blockWrapper
+					q := datastore.NewQuery("data_block").
+						Filter("__key__ =", block.key.(keyWrapper).key).
+						Project("AsOf")
+					if _, err = q.GetAll(ctx, &bw); err != nil {
+						err = newErrorWithStackTrace(err)
+						break
+					}
+					if bw[0].AsOf != block.key.(keyWrapper).asOf {
+						errc <- fmt.Errorf("Concurrent modification")
+						break
+					}
+				}
+			}
+			if err != nil {
+				errc <- err
 				continue
 			}
-			bw := blockWrapper{buf.Bytes(), time.Now()}
-			if block.key == nil || block.key.(keyWrapper).key == nil {
-				block.key = keyWrapper{datastore.NewIncompleteKey(ctx, "data_block", key),
-					time.Now()}
-			} else {
-				var bw2 []blockWrapper
-				q := datastore.NewQuery("data_block").
-					Filter("__key__ =", block.key.(keyWrapper).key).
-					Project("AsOf")
-				if _, err := q.GetAll(ctx, &bw2); err != nil {
-					errc <- newErrorWithStackTrace(err)
-					continue
+			for _, block := range blocks {
+				var buf bytes.Buffer
+				enc := gob.NewEncoder(&buf)
+				if err = enc.Encode(block); err != nil {
+					err = newErrorWithStackTrace(err)
+					break
 				}
-				if bw2[0].AsOf != block.key.(keyWrapper).asOf {
-					errc <- fmt.Errorf("Concurrent modification")
-					continue
+				bw := blockWrapper{buf.Bytes(), time.Now()}
+				_, err = datastore.Put(ctx, block.key.(keyWrapper).key, &bw)
+				if err != nil {
+					err = newErrorWithStackTrace(err)
+					break
 				}
 			}
-			_, err := datastore.Put(ctx, block.key.(keyWrapper).key, &bw)
-			if err != nil {
-				errc <- newErrorWithStackTrace(err)
-			} else {
-				errc <- nil
-			}
+			errc <- err
 		}
 	}()
 	ls = newLargeSpace(1014*1024, in, out, errc)
