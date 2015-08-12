@@ -64,7 +64,7 @@ func (ls *largeSpace) Slice(a []Account, d []DateRange, m []MomentRange) (Space,
 			out <- block.newTransaction(i)
 		})
 	}()
-	return channelSpace(out), err
+	return ChannelSpace(out), err
 }
 
 func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (Space, error) {
@@ -99,7 +99,7 @@ func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 			out <- t
 		}
 	}()
-	return channelSpace(out), nil
+	return ChannelSpace(out), nil
 }
 
 func (ls *largeSpace) Transactions() (chan *Transaction, chan error) {
