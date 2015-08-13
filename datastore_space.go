@@ -61,7 +61,7 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 				close(c)
 				errc <- err
 			}()
-			q := datastore.NewQuery("data_block").Ancestor(key)
+			q := datastore.NewQuery("data_block").Ancestor(key).Order("AsOf")
 			t := q.Run(ctx)
 			for {
 				bw := blockWrapper{}

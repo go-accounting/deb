@@ -129,6 +129,29 @@ func (ls *largeSpace) String() string {
 	return fmt.Sprintf("{%v %v %v %v}", ls.blockSize, count, ls.capacity(), blocksAsString)
 }
 
+func (ls *largeSpace) Pop() error {
+	var block *dataBlock
+	for block = range ls.in() {
+	}
+	if err := <-ls.errc; err != nil {
+		return err
+	}
+	mLen := len(block.M)
+	aLen := len(block.A)
+	mdLen := len(block.MD)
+	entriesCount := block.B[mLen*2-1 : mLen*2][0] - block.B[mLen*2-2 : mLen*2-1][0]
+	metadataSize := block.BMD[mLen*2-1 : mLen*2][0] - block.BMD[mLen*2-2 : mLen*2-1][0]
+	block.M = block.M[0 : mLen-1]
+	block.D = block.D[0 : mLen-1]
+	block.A = block.A[0 : int16(aLen)-entriesCount]
+	block.V = block.V[0 : int16(aLen)-entriesCount]
+	block.B = block.B[0 : mLen*2-2]
+	block.MD = block.MD[0 : int32(mdLen)-metadataSize]
+	block.BMD = block.BMD[0 : mLen*2-2]
+	ls.out <- []*dataBlock{block}
+	return <-ls.errc
+}
+
 func (block *dataBlock) newTransaction(i int) *Transaction {
 	t := Transaction{Moment(block.M[i]), Date(block.D[i]), make(Entries), nil}
 	t.Metadata = block.MD[block.BMD[i*2]:block.BMD[i*2+1]]
