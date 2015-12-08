@@ -140,9 +140,16 @@ func NewDatastoreSpace(ctx appengine.Context, key *datastore.Key) (Space, *datas
 					keys[i] = block.key.(keyWrapper).key
 					bws[i] = &blockWrapper{buf.Bytes(), time.Now()}
 				}
-				if _, err = datastore.PutMulti(tc, keys, bws); err != nil {
-					return newErrorWithStackTrace(err)
+				for i, _ := range keys {
+					if _, err = datastore.Put(tc, keys[i], bws[i]); err != nil {
+						return newErrorWithStackTrace(err)
+					}
 				}
+				/*
+					if _, err = datastore.PutMulti(tc, keys, bws); err != nil {
+						return newErrorWithStackTrace(err)
+					}
+				*/
 				return nil
 			}, nil)
 		}

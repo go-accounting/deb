@@ -31,6 +31,8 @@ func (ls *largeSpace) Append(s Space) error {
 		blocks    []*dataBlock
 	)
 	c, errc := s.Transactions()
+	count := 0
+	moments := map[int64]int{}
 	for t := range c {
 		if block, err := ls.freeBlock(lastBlock, t); err != nil {
 			return err
@@ -44,6 +46,12 @@ func (ls *largeSpace) Append(s Space) error {
 			}
 			block.append(t)
 		}
+		count++
+		moments[int64(t.Moment)]++
+	}
+	if logger != nil {
+		logger(fmt.Sprintf("largeSpace.Append: %v transactions, %v moments, %v blocks\n",
+			count, len(moments), len(blocks)))
 	}
 	if err := <-errc; err != nil {
 		return err

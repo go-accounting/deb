@@ -20,3 +20,9 @@ type Space interface {
 	Projection([]Account, []DateRange, []MomentRange) (Space, error)
 	Transactions() (chan *Transaction, chan error)
 }
+
+var logger func(string)
+
+func RegisterLogger(l func(string)) {
+	logger = l
+}
