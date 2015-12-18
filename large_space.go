@@ -137,19 +137,30 @@ func (ls *largeSpace) String() string {
 	return fmt.Sprintf("{%v %v %v %v}", ls.blockSize, count, ls.capacity(), blocksAsString)
 }
 
-func (ls *largeSpace) Pop() error {
+func (ls *largeSpace) Pop() (int32, []int64, error) {
 	var block *dataBlock
-	for block = range ls.in() {
+	for b := range ls.in() {
+		if len(b.M) > 0 && len(b.A) > 0 && len(b.MD) > 0 {
+			block = b
+		}
 	}
 	if err := <-ls.errc; err != nil {
-		return err
+		return 0, nil, err
+	}
+	if block == nil {
+		return 0, nil, fmt.Errorf("No nonempty block found")
 	}
 	mLen := len(block.M)
 	aLen := len(block.A)
 	mdLen := len(block.MD)
+	if mLen == 0 || aLen == 0 || mdLen == 0 {
+		return 0, nil, fmt.Errorf("At least one empty array M:%v A:%v MD:%v", mLen, aLen, mdLen)
+	}
 	entriesCount := block.B[mLen*2-1 : mLen*2][0] - block.B[mLen*2-2 : mLen*2-1][0]
 	metadataSize := block.BMD[mLen*2-1 : mLen*2][0] - block.BMD[mLen*2-2 : mLen*2-1][0]
 	block.M = block.M[0 : mLen-1]
+	d := block.D[mLen-1]
+	v := block.V[int16(aLen)-entriesCount:]
 	block.D = block.D[0 : mLen-1]
 	block.A = block.A[0 : int16(aLen)-entriesCount]
 	block.V = block.V[0 : int16(aLen)-entriesCount]
@@ -157,7 +168,7 @@ func (ls *largeSpace) Pop() error {
 	block.MD = block.MD[0 : int32(mdLen)-metadataSize]
 	block.BMD = block.BMD[0 : mLen*2-2]
 	ls.out <- []*dataBlock{block}
-	return <-ls.errc
+	return d, v, <-ls.errc
 }
 
 func (block *dataBlock) newTransaction(i int) *Transaction {
