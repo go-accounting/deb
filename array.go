@@ -2,8 +2,6 @@ package deb
 
 import (
 	_ "fmt"
-
-	xmath "github.com/mcesarhm/geek-accounting/go-server/extensions/math"
 )
 
 type Array [][][]int64
@@ -53,8 +51,8 @@ func (arr Array) Transposed() (result Array) {
 func (arr *Array) Append(other_arr *Array, y, z uint64) error {
 	x1, y1, z1 := arr.Dimensions()
 	x2, y2, z2 := other_arr.Dimensions()
-	mx, my, mz := xmath.Max(x1, x2), xmath.MaxU64(uint64(y1), uint64(y2)+y),
-		xmath.MaxU64(uint64(z1), uint64(z2)+z)
+	mx, my, mz := max(x1, x2), maxUint64(uint64(y1), uint64(y2)+y),
+		maxUint64(uint64(z1), uint64(z2)+z)
 	if arr.Empty() && other_arr.Empty() {
 		return nil
 	}
@@ -89,4 +87,18 @@ func (arr Array) Dimensions() (int, int, int) {
 func (arr Array) Empty() bool {
 	x, y, z := arr.Dimensions()
 	return x == 0 || y == 0 || z == 0
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func maxUint64(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -2,8 +2,6 @@ package deb
 
 import (
 	"math"
-
-	xmath "github.com/mcesarhm/geek-accounting/go-server/extensions/math"
 )
 
 type smallSpace struct {
@@ -165,10 +163,10 @@ func (ss *smallSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 		for _, each_dr := range d {
 			for _, each_mr := range m {
 				sum := int64(0)
-				j_start := xmath.Min(int(each_dr.Start-1-Date(ss.dateOffset)), y)
-				j_end := xmath.Min(int(each_dr.End-Date(ss.dateOffset)), y)
-				k_start := xmath.Min(int(each_mr.Start-1-Moment(ss.momentOffset)), z)
-				k_end := xmath.Min(int(each_mr.End-Moment(ss.momentOffset)), z)
+				j_start := min(int(each_dr.Start-1-Date(ss.dateOffset)), y)
+				j_end := min(int(each_dr.End-Date(ss.dateOffset)), y)
+				k_start := min(int(each_mr.Start-1-Moment(ss.momentOffset)), z)
+				k_end := min(int(each_mr.End-Moment(ss.momentOffset)), z)
 				for j := j_start; j < j_end; j++ {
 					for k := k_start; k < k_end; k++ {
 						sum += result.arr[i][j][k]
@@ -284,4 +282,11 @@ func containsMomentStart(m []MomentRange, elem Moment) bool {
 		}
 	}
 	return false
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
