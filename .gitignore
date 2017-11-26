@@ -21,3 +21,5 @@ node_modules/
 
 nodejitsu-config.json
 go-server/client
+*.lock
+vendor
