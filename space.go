@@ -1,4 +1,4 @@
-package deb // import "mcesar.io/deb"
+package deb
 
 type Account uint32
 type Date uint32
