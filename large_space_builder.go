@@ -7,13 +7,13 @@ func (lsb LargeSpaceBuilder) NewSpace(arr Array, metadata [][][]byte) Space {
 }
 
 func (LargeSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata [][][]byte) Space {
-	blocks := []*dataBlock{}
+	blocks := []*DataBlock{}
 	errc := make(chan error, 1)
-	in := func() chan *dataBlock {
-		c := make(chan *dataBlock)
+	in := func() chan *DataBlock {
+		c := make(chan *DataBlock)
 		go func() {
 			for i, block := range blocks {
-				block.key = i
+				block.Key = i
 				c <- block
 			}
 			close(c)
@@ -21,21 +21,21 @@ func (LargeSpaceBuilder) NewSpaceWithOffset(arr Array, do, mo int, metadata [][]
 		}()
 		return c
 	}
-	out := make(chan []*dataBlock)
+	out := make(chan []*DataBlock)
 	go func() {
 		for blocks_ := range out {
 			for _, block := range blocks_ {
-				if block.key == nil {
+				if block.Key == nil {
 					blocks = append(blocks, block)
 				} else {
-					index := block.key.(int)
+					index := block.Key.(int)
 					blocks[index] = block
 				}
 			}
 			errc <- nil
 		}
 	}()
-	ls := newLargeSpace(1014*1024, in, out, errc)
+	ls := NewLargeSpace(1014*1024, in, out, errc)
 	if arr != nil {
 		ls.Append(NewSmallSpaceWithOffset(arr, uint64(do), uint64(mo), metadata))
 	}

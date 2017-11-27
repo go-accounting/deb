@@ -2,15 +2,15 @@ package deb
 
 import "fmt"
 
-type largeSpace struct {
+type LargeSpace struct {
 	blockSize uint
-	in        func() chan *dataBlock
-	out       chan []*dataBlock
+	in        func() chan *DataBlock
+	out       chan []*DataBlock
 	errc      chan error
 }
 
-type dataBlock struct {
-	key interface{}
+type DataBlock struct {
+	Key interface{}
 	M   []int64 // Moments
 	D   []int32 // Dates
 	A   []int32 // Accounts
@@ -20,15 +20,19 @@ type dataBlock struct {
 	BMD []int32 // Metadata bounds
 }
 
-func newLargeSpace(blockSize uint, in func() chan *dataBlock, out chan []*dataBlock,
-	errc chan error) *largeSpace {
-	return &largeSpace{blockSize: blockSize, in: in, out: out, errc: errc}
+func NewLargeSpace(
+	blockSize uint,
+	in func() chan *DataBlock,
+	out chan []*DataBlock,
+	errc chan error,
+) *LargeSpace {
+	return &LargeSpace{blockSize: blockSize, in: in, out: out, errc: errc}
 }
 
-func (ls *largeSpace) Append(s Space) error {
+func (ls *LargeSpace) Append(s Space) error {
 	var (
-		lastBlock *dataBlock
-		blocks    []*dataBlock
+		lastBlock *DataBlock
+		blocks    []*DataBlock
 	)
 	c, errc := s.Transactions()
 	count := 0
@@ -38,7 +42,7 @@ func (ls *largeSpace) Append(s Space) error {
 			return err
 		} else {
 			if block == nil {
-				block = ls.newDataBlock()
+				block = ls.NewDataBlock()
 			}
 			if block != lastBlock {
 				lastBlock = block
@@ -63,25 +67,25 @@ func (ls *largeSpace) Append(s Space) error {
 	return nil
 }
 
-func (ls *largeSpace) Slice(a []Account, d []DateRange, m []MomentRange) (Space, error) {
+func (ls *LargeSpace) Slice(a []Account, d []DateRange, m []MomentRange) (Space, error) {
 	out := make(chan *Transaction)
 	var err error
 	go func() {
 		defer close(out)
-		err = ls.iterateWithFilter(a, d, m, func(block *dataBlock, i int) {
+		err = ls.iterateWithFilter(a, d, m, func(block *DataBlock, i int) {
 			out <- block.newTransaction(i)
 		})
 	}()
 	return ChannelSpace(out), err
 }
 
-func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (Space, error) {
+func (ls *LargeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (Space, error) {
 	type key struct {
 		moment Moment
 		date   Date
 	}
 	transactions := map[key]*Transaction{}
-	err := ls.iterateWithFilter(a, d, m, func(block *dataBlock, i int) {
+	err := ls.iterateWithFilter(a, d, m, func(block *DataBlock, i int) {
 		k := key{startMoment(m, Moment(block.M[i])), startDate(d, Date(block.D[i]))}
 		nt := block.newTransaction(i)
 		if t, ok := transactions[k]; !ok {
@@ -110,7 +114,7 @@ func (ls *largeSpace) Projection(a []Account, d []DateRange, m []MomentRange) (S
 	return ChannelSpace(out), nil
 }
 
-func (ls *largeSpace) Transactions() (chan *Transaction, chan error) {
+func (ls *LargeSpace) Transactions() (chan *Transaction, chan error) {
 	out := make(chan *Transaction)
 	go func() {
 		defer close(out)
@@ -123,7 +127,7 @@ func (ls *largeSpace) Transactions() (chan *Transaction, chan error) {
 	return out, ls.errc
 }
 
-func (ls *largeSpace) String() string {
+func (ls *LargeSpace) String() string {
 	blocksAsString := []string{}
 	count := 0
 	for block := range ls.in() {
@@ -137,8 +141,8 @@ func (ls *largeSpace) String() string {
 	return fmt.Sprintf("{%v %v %v %v}", ls.blockSize, count, ls.capacity(), blocksAsString)
 }
 
-func (ls *largeSpace) Pop() (int32, []int64, error) {
-	var block *dataBlock
+func (ls *LargeSpace) Pop() (int32, []int64, error) {
+	var block *DataBlock
 	for b := range ls.in() {
 		if len(b.M) > 0 && len(b.A) > 0 && len(b.MD) > 0 {
 			block = b
@@ -167,11 +171,11 @@ func (ls *largeSpace) Pop() (int32, []int64, error) {
 	block.B = block.B[0 : mLen*2-2]
 	block.MD = block.MD[0 : int32(mdLen)-metadataSize]
 	block.BMD = block.BMD[0 : mLen*2-2]
-	ls.out <- []*dataBlock{block}
+	ls.out <- []*DataBlock{block}
 	return d, v, <-ls.errc
 }
 
-func (block *dataBlock) newTransaction(i int) *Transaction {
+func (block *DataBlock) newTransaction(i int) *Transaction {
 	t := Transaction{Moment(block.M[i]), Date(block.D[i]), make(Entries), nil}
 	t.Metadata = block.MD[block.BMD[i*2]:block.BMD[i*2+1]]
 	for j := block.B[i*2]; j < block.B[i*2+1]; j++ {
@@ -180,15 +184,15 @@ func (block *dataBlock) newTransaction(i int) *Transaction {
 	return &t
 }
 
-func (ls *largeSpace) capacity() uint {
+func (ls *LargeSpace) capacity() uint {
 	return (ls.blockSize / 2) / (64 + 32 + 32*2 + 64*2 + 16*2 + 32*2)
 }
 
-func (ls *largeSpace) freeBlock(block *dataBlock, t *Transaction) (*dataBlock, error) {
+func (ls *LargeSpace) freeBlock(block *DataBlock, t *Transaction) (*DataBlock, error) {
 	if block != nil && block.hasRoomFor(t, ls) {
 		return block, nil
 	}
-	var result *dataBlock
+	var result *DataBlock
 	for block := range ls.in() {
 		if block.hasRoomFor(t, ls) {
 			result = block
@@ -197,8 +201,8 @@ func (ls *largeSpace) freeBlock(block *dataBlock, t *Transaction) (*dataBlock, e
 	return result, <-ls.errc
 }
 
-func (ls *largeSpace) newDataBlock() *dataBlock {
-	block := new(dataBlock)
+func (ls *LargeSpace) NewDataBlock() *DataBlock {
+	block := new(DataBlock)
 	block.M = make([]int64, 0, ls.capacity())
 	block.D = make([]int32, 0, ls.capacity())
 	block.A = make([]int32, 0, ls.capacity()*2)
@@ -209,8 +213,8 @@ func (ls *largeSpace) newDataBlock() *dataBlock {
 	return block
 }
 
-func (ls *largeSpace) iterateWithFilter(a []Account, d []DateRange, m []MomentRange,
-	f func(*dataBlock, int)) error {
+func (ls *LargeSpace) iterateWithFilter(a []Account, d []DateRange, m []MomentRange,
+	f func(*DataBlock, int)) error {
 	for block := range ls.in() {
 		for i := 0; i < len(block.M); i++ {
 			if containsMoment(m, Moment(block.M[i])) && containsDate(d, Date(block.D[i])) {
@@ -226,7 +230,7 @@ func (ls *largeSpace) iterateWithFilter(a []Account, d []DateRange, m []MomentRa
 	return <-ls.errc
 }
 
-func (block *dataBlock) append(t *Transaction) {
+func (block *DataBlock) append(t *Transaction) {
 	mLen := len(block.M)
 	aLen := len(block.A)
 	mdLen := len(block.MD)
@@ -257,7 +261,7 @@ func (block *dataBlock) append(t *Transaction) {
 	}
 }
 
-func (block *dataBlock) hasRoomFor(t *Transaction, ls *largeSpace) bool {
+func (block *DataBlock) hasRoomFor(t *Transaction, ls *LargeSpace) bool {
 	return uint(len(block.A)+len(t.Entries)) <= ls.capacity()*2 &&
 		(t.Metadata == nil || uint(len(block.MD)+len(t.Metadata)) <= ls.blockSize/2)
 }
